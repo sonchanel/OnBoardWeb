@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang chủ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        body { display: flex; }
+        .sidebar { width: 250px; background: #0d6efd; color: white; min-height: 100vh; padding: 15px; }
+        .sidebar a { color: white; text-decoration: none; display: block; padding: 10px; }
+        .sidebar a:hover { background: #084298; }
+        .content { flex-grow: 1; padding: 20px; }
+        .filter-panel { width: 250px; padding: 20px; background: #f8f9fa; }
+        .status-badge { padding: 5px 10px; border-radius: 5px; color: white; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h4>
+            <a href="/users/Profile" class="text-white text-decoration-none">
+                <%= user.name %>
+            </a>
+        </h4>        
+        <a href="/">Trang chủ</a>
+        <a href="#">Thông báo</a>
+        <a href="/Thanhvien">Thành viên nhóm</a>
+        <a href="/Quytrinh">Quy trình</a>
+        <a href="#">Cài đặt</a>
+    </div>
+    
+    <div class="content">
+        <h2>Danh sách Thành viên</h2>
+
+        <% if (thanhvien.length > 0) { %>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Tên</th>
+                        <th>Email</th>
+                        <th>SĐT</th>
+                        <th>Nhóm</th>
+                        <th>Người quản lý</th>
+                        <th>Thời gian tạo</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% thanhvien.forEach((thanhvien, index) => { %>
+                        <tr>
+                            <td><%= index + 1 %></td>
+                            <td><%= thanhvien.name %></td>
+                            <td><%= thanhvien.email %></td>
+                            <td><%= thanhvien.phone %></td>
+                            <td><%= thanhvien.group %></td>
+                            <td><%= user.name %></td>
+                            <td><%= new Date(thanhvien.createdAt).toLocaleString('vi-VN') %></td>
+                            <td>                            
+                                <button class="btn btn-warning btn-sm" onclick="editThanhVien('<%= thanhvien._id %>')">
+                                    ✏ Sửa
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteThanhVien('<%= thanhvien._id %>')">
+                                    🗑 Xóa
+                                </button>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        <% } else { %>
+            <p class="text-muted">Chưa có thành viên nào.</p>
+        <% } %>
+        <!-- Nút "Thêm quy trình" ở góc phải -->
+        <button class="btn btn-primary position-absolute top-0 end-0 mt-2 me-3"
+        data-bs-toggle="modal" data-bs-target="#addProcessModal">
+        + Thêm thành viên
+    </button>   
+    </div>
+        
+<!-- Modal nhập thêm nhân viên-->
+<div class="modal fade" id="addProcessModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Thêm Thành viên Mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="thanhvienForm">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Tên</label>
+                        <input type="text" class="form-control" id="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="text" class="form-control" id="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Mật khẩu</label>
+                        <input type="text" class="form-control" id="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="manager" class="form-label">Người quản lý</label>
+                        <input type="text" class="form-control" id="manager" data="<%= user._id %>" value="<%= user.email%>" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="group" class="form-label">Nhóm</label>
+                        <input type="text" class="form-control" id="group" required>
+                    </div>
+                    <div>
+                        <div class="form-check mb-3">
+                            <label class="form-check-label">
+                             Email sẽ được gửi tự động cho nhân viên
+                            </label>
+                          </div>                          
+                    </div>
+                    <button type="submit" class="btn btn-success">Lưu</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal chỉnh sửa nhân viên -->
+<div class="modal fade" id="editThanhVienModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chỉnh sửa Nhân viên</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editThanhVienForm">
+                    <input type="hidden" id="edit_id">
+                    <div class="mb-3">
+                        <label class="form-label">Tên</label>
+                        <input type="text" class="form-control" id="edit_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="text" class="form-control" id="edit_email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nhóm</label>
+                        <input type="text" class="form-control" id="edit_group" required>
+                    </div>
+                    <button type="submit" class="btn btn-success">Cập nhật</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+document.getElementById("thanhvienForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    
+    const thanhvienData = {
+        name: document.getElementById("name").value,
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value,
+        manager: document.getElementById("manager").getAttribute("data"),
+        group: document.getElementById("group").value,
+    };
+
+    const response = await fetch("/Thanhvien/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(thanhvienData)
+    });
+
+    if (response.ok) {
+        alert("Thêm thành viên thành công!");
+        window.location.reload();
+    } else {
+        alert("Có lỗi xảy ra!");
+    }
+});
+</script>
+
+<script>
+    async function editThanhVien(id) {
+        const response = await fetch(`/Thanhvien/${id}`);
+        const thanhvien = await response.json();
+    
+        document.getElementById("edit_id").value = thanhvien._id;
+        document.getElementById("edit_name").value = thanhvien.name;
+        document.getElementById("edit_group").value = thanhvien.group;
+        document.getElementById("edit_email").value = thanhvien.email;
+    
+        new bootstrap.Modal(document.getElementById('editThanhVienModal')).show();
+    }
+    
+    document.getElementById("editThanhVienForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+    
+        const id = document.getElementById("edit_id").value;
+        const thanhvienData = {
+            name: document.getElementById("edit_name").value,
+            email: document.getElementById("edit_email").value,
+            group: document.getElementById("edit_group").value,
+        };
+    
+        const response = await fetch(`/Thanhvien/update/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(thanhvienData)
+        });
+    
+        if (response.ok) {
+            alert("Cập nhật thành công!");
+            window.location.reload();
+        } else {
+            alert("Có lỗi xảy ra!");
+        }
+    });
+    </script>
+    
+    <script>
+        async function deleteThanhVien(id) {
+            if (confirm("Bạn có chắc chắn muốn xóa nhân viên này?")) {
+                const response = await fetch(`/Thanhvien/delete/${id}`, { method: "DELETE" });
+                if (response.ok) {
+                    alert("Xóa thành công!");
+                    window.location.reload();
+                } else {
+                    alert("Có lỗi xảy ra!");
+                }
+            }
+        }
+        </script>
+
+            
+        
+
+</body>
+</html>

@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chi tiết Quy trình</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.ckeditor.com/ckeditor5/41.2.1/classic/ckeditor.js"></script>
+
+    <style>
+        body { display: flex; }
+        .sidebar { width: 250px; background: #0d6efd; color: white; min-height: 100vh; padding: 15px; }
+        .sidebar a { color: white; text-decoration: none; display: block; padding: 10px; }
+        .sidebar a:hover { background: #084298; }
+        .content { flex-grow: 1; padding: 20px; }
+        .step-list { list-style: none; padding: 0; }
+        .step-item { padding: 10px; border-bottom: 1px solid #ddd; cursor: pointer; }
+        .step-item.locked { color: gray; cursor: not-allowed; }
+        .step-item.active { background-color: #0d6efd; color: white; }
+        #stepDetail .d-flex {
+            gap: 10px; /* Giữ khoảng cách giữa tiêu đề và nút */
+        }
+        
+        #stepTitleEdit {
+            flex-grow: 1; /* Giúp input mở rộng nhưng không quá lớn */
+            max-width: 70%; /* Hạn chế chiều rộng tối đa */
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h4>
+            <a href="/users/Profile" class="text-white text-decoration-none">
+                <%= user.name %>
+            </a>
+        </h4>        
+        <a href="/">Trang chủ</a>
+        <a href="#">Thông báo</a>
+        <a href="/Thanhvien">Thành viên nhóm</a>
+        <a href="/Quytrinh">Quy trình</a>
+        <a href="#">Cài đặt</a>
+    </div>
+    
+    <div class="content">
+        <div class="container-fluid">
+            <h2><%= process.name %></h2>
+            <div class="row">
+                <!-- Sidebar: Danh sách các bước -->
+                <div class="col-md-3 bg-light p-3">
+                    <h4 class="mb-3">Các bước onboard</h4>
+                    <button class="btn btn-primary w-100 mb-3" data-bs-toggle="modal" data-bs-target="#addStepModal">➕ Thêm bước mới</button>
+                    <ul class="list-group">
+                        <% steps.forEach((step, index) => { %>
+                            <li class="list-group-item d-flex justify-content-between align-items-center step-item"
+                                onclick='showStep(
+                                    "<%= step._id %>",
+                                    "<%= step.name %>",
+                                    `<%= (step.content || "").replace(/`/g, "\\`").replace(/\$/g, "\\$") %>`,
+                                    "<%= step.type %>",
+                                    <%- JSON.stringify(step.forms || []) %>
+                                )'>
+                                <span>
+                                    <strong><%= step.name %></strong>
+                                    <% if (step.required) { %> <span class="text-danger">*</span> <% } %>
+                                </span>
+                            </li>
+                        <% }); %>
+                    </ul>
+                </div>
+        
+                <!-- Nội dung chi tiết bước -->
+                <div class="col-md-9 p-4">
+                    <div id="stepDetail" style="display: none;"> <!-- Ẩn ban đầu -->
+                        <div class="d-flex align-items-center justify-content-between">
+                            <h3 id="stepTitleDisplay" class="mb-0"></h3>
+                            <input type="text" id="stepTitleEdit" class="form-control me-2" style="display: none; width: auto;">
+                            <div>                               
+                                <button id="editStepBtn" class="btn btn-warning btn-md" style="display: none;" onclick="editStep()">Chỉnh sửa</button>
+                                <button id="saveStepBtn" class="btn btn-success btn-md" style="display: none;" onclick="saveStep()">Lưu</button>
+                                <button id="deleteStepBtn" class="btn btn-danger btn-md" style="display: none;" onclick="deleteStep()">🗑️ Xóa</button>
+                            </div>
+                        </div>
+                        
+                        <div id="formControls" class="mt-3" style="display: none;">
+                            <button class="btn btn-outline-primary" onclick="showAddFormModal()">➕ Thêm câu hỏi</button>
+                        </div> 
+                        <div id="fileControls" class="mt-3" style="display: none;">
+                            <button class="btn btn-outline-primary" onclick="showAddFileModal()">➕ Thêm file</button>
+                        </div>                        
+                    
+                        <div id="stepContentDisplay" class="mt-3"></div>
+                        <div id="stepContentEdit" class="form-control mt-3" >
+                            <div id="stepTextarea">
+
+                            </div>
+                        </div>
+                    </div>                              
+                </div>
+                
+            </div>
+        </div>
+        
+        <!-- Modal thêm file -->
+<div class="modal fade" id="addFileModal" tabindex="-1" aria-labelledby="addFileModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <form id="uploadFileForm" class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addFileModalLabel">Tải lên file đính kèm</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="fileNameInput" class="form-label">Tên file hiển thị</label>
+            <input type="text" class="form-control" id="fileNameInput" placeholder="Nhập tên file hiển thị">
+          </div>
+          <div class="mb-3">
+            <label for="fileInput" class="form-label">Chọn file</label>
+            <input type="file" class="form-control" id="fileInput" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Tải lên</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+
+        <!-- Modal thêm bước mới -->
+        <div class="modal fade" id="addStepModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Thêm bước mới</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="stepForm">
+                            <input type="hidden" id="quyTrinhId" value="<%= process._id %>">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Tên bước</label>
+                                <input type="text" class="form-control" id="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="type" class="form-label">Loại bước</label>
+                                <select class="form-control" id="type" required>
+                                    <option value="text">Mô tả</option>
+                                    <option value="form">Form</option>
+                                    <option value="document">Tài liệu</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="required" class="form-label">Bắt buộc?</label>
+                                <input type="checkbox" id="required">
+                            </div>
+                            <button type="submit" class="btn btn-success">Lưu</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Modal chỉnh sửa bước -->
+<div class="modal fade" id="editStepModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chỉnh sửa bước</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editStepForm">
+                    <input type="hidden" id="editStepId">
+                    <div class="mb-3">
+                        <label for="editStepName" class="form-label">Tên bước</label>
+                        <input type="text" class="form-control" id="editStepName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editStepContent" class="form-label">Nội dung</label>
+                        <textarea class="form-control" id="editStepContent" rows="4"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">Lưu thay đổi</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal thêm câu hỏi form -->
+<div class="modal fade" id="addFormModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="addFormQuestionForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Thêm câu hỏi</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="stepFormId">
+          <div class="mb-3">
+            <label for="questionName" class="form-label">Nội dung câu hỏi</label>
+            <input type="text" id="questionName" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label for="questionType" class="form-label">Loại câu hỏi</label>
+            <select id="questionType" class="form-control" required onchange="toggleOptionsInput()">
+              <option value="text">Text</option>
+              <option value="number">Number</option>
+              <option value="radio">Radio</option>
+              <option value="checkbox">Checkbox</option>
+            </select>
+          </div>
+          <div class="mb-3" id="optionsContainer" style="display: none;">
+            <label class="form-label">Tùy chọn (mỗi dòng là 1 lựa chọn)</label>
+            <textarea id="questionOptions" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="questionRequired" class="form-check-input">
+            <label for="questionRequired" class="form-check-label">Bắt buộc</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success">Lưu</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal chỉnh sửa form -->
+<div class="modal fade" id="editFormModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="editFormQuestionForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Chỉnh sửa câu hỏi</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="editFormId">
+          <div class="mb-3">
+            <label for="editQuestionName" class="form-label">Nội dung câu hỏi</label>
+            <input type="text" id="editQuestionName" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label for="editQuestionType" class="form-label">Loại câu hỏi</label>
+            <select id="editQuestionType" class="form-control" required onchange="toggleEditOptionsInput()">
+              <option value="text">Text</option>
+              <option value="number">Number</option>
+              <option value="radio">Radio</option>
+              <option value="checkbox">Checkbox</option>
+            </select>
+          </div>
+          <div class="mb-3" id="editOptionsContainer" style="display: none;">
+            <label class="form-label">Tùy chọn (mỗi dòng là 1 lựa chọn)</label>
+            <textarea id="editQuestionOptions" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" id="editQuestionRequired" class="form-check-input">
+            <label for="editQuestionRequired" class="form-check-label">Bắt buộc</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success">Lưu thay đổi</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  
+
+    <script>
+        CKEDITOR.replace('stepContentEdit');
+    </script>
+    
+    
+    <script>
+        const steps = <%= JSON.stringify(steps) %>;
+        const stepElements = document.querySelectorAll(".step-item");
+        const stepTitle = document.getElementById("stepTitle");
+        const stepDesc = document.getElementById("stepDesc");
+
+        stepElements.forEach((el, index) => {
+            if (!steps[index].locked) {
+                el.addEventListener("click", () => {
+                    document.querySelectorAll(".step-item").forEach(item => item.classList.remove("active"));
+                    el.classList.add("active");
+                    stepTitle.textContent = steps[index].name;
+                    stepDesc.textContent = steps[index].content;
+                });
+            }
+        });
+    </script>
+
+    <script>
+        document.getElementById("stepForm").addEventListener("submit", async function (e) {
+            e.preventDefault();
+        
+            const stepData = {
+                quyTrinhId: document.getElementById("quyTrinhId").value,
+                name: document.getElementById("name").value,
+                type: document.getElementById("type").value,
+                required: document.getElementById("required").checked
+            };
+        
+            const response = await fetch("steps/create", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(stepData)
+            });
+        
+            if (response.ok) {
+                alert("Thêm bước mới thành công!");
+                window.location.reload();
+            } else {
+                alert("Có lỗi xảy ra!");
+            }
+        });
+        </script>
+
+    <script>
+
+        let editorInstance;
+
+        // Khởi tạo CKEditor
+        ClassicEditor.create(document.querySelector('#stepTextarea'))
+            .then(editor => {
+                editorInstance = editor;  // Lưu lại instance để lấy dữ liệu sau này
+            })
+            .catch(error => {
+                console.error('Lỗi khi khởi tạo CKEditor:', error);
+            });
+
+        let currentStepId = null;
+        let currentStepName = null;
+        let currentStepType = null;
+        let currentStepContent = null;
+        let currentForms = []; // Biến toàn cục chứa danh sách form của step hiện hành
+        let currentFiles = [];
+        let currentText = null;
+
+        async function showStep(id, name, content, type) {
+            currentStepId = id;
+            currentStepName = name;
+            currentStepType = type;
+            currentStepContent = content;
+
+            document.getElementById('stepTitleDisplay').innerText = name;
+            
+            try{
+                const response = await fetch(`steps/${id}`);
+                if (!response.ok) throw new Error('Lỗi tải dữ liệu form');
+                const data = await response.json();
+                currentText = data || null;
+                console.log(currentText)
+                currentForms = data.forms || [];
+                currentFiles = data.files || [];
+            } catch (err) {
+                console.error(err);
+                document.getElementById('stepContentDisplay').innerHTML = '<p class="text-danger">Lỗi khi tải biểu mẫu.</p>';
+            }
+            
+            if (type === 'form') {
+                // Khi là form, gọi API để lấy dữ liệu form của step đó
+                document.getElementById('stepContentDisplay').innerHTML = '<p>Đang tải biểu mẫu...</p>';
+                // Render các câu hỏi form
+                document.getElementById('stepContentDisplay').innerHTML = renderForm(currentForms);
+                // Hiện nút thêm câu hỏi
+                document.getElementById('formControls').style.display = 'block';
+                // Với step type "form", vô hiệu hóa hoặc ẩn nút chỉnh sửa chung của step
+                document.getElementById('editStepBtn').style.display = "none";
+                document.getElementById('deleteStepBtn').style.display = "inline-block ";
+                document.getElementById('fileControls').style.display = 'none';
+            } else if (type === 'document') {
+                document.getElementById('stepContentDisplay').innerHTML = '<p>Đang tải...</p>';
+                // Hiển thị danh sách file nếu là document
+                document.getElementById('stepContentDisplay').innerHTML = renderFile(currentFiles);
+                document.getElementById('fileControls').style.display = 'block';
+                // Ẩn chỉnh sửa text content
+                document.getElementById('editStepBtn').style.display = "none";
+                document.getElementById('deleteStepBtn').style.display = "inline-block";
+            
+                // Hiện formControls chỉ khi là form, nên ẩn ở đây
+                document.getElementById('formControls').style.display = 'none';
+            } else {
+                // Nếu không phải form, hiển thị nội dung như cũ
+                document.getElementById('stepContentDisplay').innerHTML = renderText(currentText);
+                // Hiển thị nút chỉnh sửa, xóa của step
+                document.getElementById('editStepBtn').style.display = "inline-block";
+                document.getElementById('deleteStepBtn').style.display = "inline-block";
+                // Ẩn nút điều khiển form
+                document.getElementById('formControls').style.display = 'none';
+                document.getElementById('fileControls').style.display = 'none';
+            }
+        
+            // Thiết lập hiển thị chung
+            document.getElementById("stepDetail").style.display = "block";
+            document.getElementById("saveStepBtn").style.display = "none";
+            document.getElementById('stepTitleEdit').style.display = "none";
+            document.getElementById('stepContentEdit').style.display = "none";
+            document.getElementById('stepTitleDisplay').style.display = "block";
+            document.getElementById('stepContentDisplay').style.display = "block";
+        }
+        
+
+
+        function editStep() {
+            // Lấy dữ liệu từ div để điền vào input
+            document.getElementById('stepTitleEdit').value = document.getElementById('stepTitleDisplay').innerText;
+            document.getElementById('stepContentEdit').value = document.getElementById('stepContentDisplay').innerText;
+            editorInstance.setData(document.getElementById('stepContentDisplay').innerHTML);
+
+            // Ẩn div, hiển thị input và textarea
+            document.getElementById('stepTitleDisplay').style.display = "none";
+            document.getElementById('stepContentDisplay').style.display = "none";
+            document.getElementById('stepTitleEdit').style.display = "block";
+            document.getElementById('stepContentEdit').style.display = "block";
+
+
+            // Hiển thị nút Lưu, ẩn nút Chỉnh sửa
+            document.getElementById('editStepBtn').style.display = "none";
+            document.getElementById('deleteStepBtn').style.display = "none";
+            document.getElementById('saveStepBtn').style.display = "inline-block";
+        }
+
+        
+        async function saveStep() {
+            const updatedTitle = document.getElementById('stepTitleEdit').value;
+            const updatedContent = editorInstance.getData();
+
+            const response = await fetch(`steps/update/${currentStepId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: updatedTitle, content: updatedContent })
+            });
+
+            if (response.ok) {
+                alert("Cập nhật thành công!");
+                showStep(currentStepId, currentStepName, currentStepContent, currentStepType)
+                // Hiển thị lại nội dung mới trong div
+                document.getElementById('stepTitleDisplay').innerHTML = updatedTitle;
+                document.getElementById('stepContentDisplay').innerHTML = updatedContent;
+
+                // Quay về chế độ xem bình thường
+                document.getElementById('stepTitleEdit').style.display = "none";
+                document.getElementById('stepContentEdit').style.display = "none";
+                document.getElementById('stepTitleDisplay').style.display = "block";
+                document.getElementById('stepContentDisplay').style.display = "block";
+
+                // Hiển thị lại nút Chỉnh sửa, ẩn nút Lưu
+                document.getElementById('editStepBtn').style.display = "inline-block";
+                document.getElementById('deleteStepBtn').style.display = "inline-block";
+                document.getElementById('saveStepBtn').style.display = "none";
+            } else {
+                alert("Có lỗi xảy ra!");
+            }
+        }
+
+        async function deleteStep() {
+            if (!currentStepId) return;
+            
+            if (!confirm("Bạn có chắc muốn xóa bước này?")) return;
+        
+            const response = await fetch(`steps/delete/${currentStepId}`, {
+                method: "DELETE",
+            });
+        
+            if (response.ok) {
+                alert("Bước đã được xóa!");
+                window.location.reload();
+            } else {
+                alert("Có lỗi xảy ra!");
+            }
+        }
+
+        function renderText(data) {
+            if (!data || data.length === 0) return '<p>Không có nội dung.</p>';
+        
+            let html = '<div class="form-preview">';
+        
+                html += `
+                <div class="mb-3 p-3 border rounded">
+                    <div>${data.step.content || '<em class="text-muted">Không có nội dung</em>'}</div>
+                </div>`;
+            
+        
+            html += '</div>';
+            return html;
+        }
+        
+
+        function renderForm(forms) {
+            if (!forms || forms.length === 0) return '<p>Không có câu hỏi nào.</p>';
+            
+            // Tạo container chung cho form
+            let html = '<form id="dynamicForm" class="mb-3">';
+            
+            forms.forEach(form => {
+                html += `<div class="mb-4" id="formContainer_${form._id}">`;
+                // Hiển thị tên câu hỏi và bắt buộc nếu có
+                html += `<label class="form-label"><strong>${form.name}</strong>${form.required ? ' <span class="text-danger">*</span>' : ''}</label>`;
+                
+                // Tùy biến hiển thị input theo loại câu hỏi:
+                const nameAttr = `form_${form._id}`;
+                
+                switch(form.type) {
+                    case 'text':
+                        html += `<input type="text" class="form-control" name="${nameAttr}" placeholder="Nhập câu trả lời..." ${form.required ? 'required' : ''}>`;
+                        break;
+                    case 'number':
+                        html += `<input type="number" class="form-control" name="${nameAttr}" placeholder="Nhập số..." ${form.required ? 'required' : ''}>`;
+                        break;
+                    case 'radio':
+                        if (form.options && form.options.length) {
+                            form.options.forEach(opt => {
+                                html += `
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="${nameAttr}" id="${nameAttr}_${opt}" value="${opt}" ${form.required ? 'required' : ''}>
+                                    <label class="form-check-label" for="${nameAttr}_${opt}">${opt}</label>
+                                </div>`;
+                            });
+                        } else {
+                            html += `<p class="text-muted">Không có tùy chọn.</p>`;
+                        }
+                        break;
+                    case 'checkbox':
+                        if (form.options && form.options.length) {
+                            form.options.forEach(opt => {
+                                html += `
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="${nameAttr}" id="${nameAttr}_${opt}" value="${opt}">
+                                    <label class="form-check-label" for="${nameAttr}_${opt}">${opt}</label>
+                                </div>`;
+                            });
+                        } else {
+                            html += `<p class="text-muted">Không có tùy chọn.</p>`;
+                        }
+                        break;
+                    default:
+                        html += `<p class="text-muted">Kiểu câu hỏi không xác định.</p>`;
+                }
+                
+                // Nếu bạn muốn hiển thị thêm nút sửa, nút xóa cho mỗi câu hỏi, bạn có thể thêm như sau:
+                html += `
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-sm btn-warning" onclick="showEditFormModalHandler(event, '${form._id}')">Sửa</button>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteFormHandler(event, '${form._id}')">Xóa</button>
+                    </div>`;
+                    
+                html += `</div>`; // Kết thúc từng câu hỏi
+            });
+            
+            html += '</form>';
+            return html;
+        }
+           
+        function renderFile(files) {
+            if (!files || files.length === 0) return '<p>Chưa có file nào được đính kèm.</p>';
+        
+            let html = '<div id="fileList" class="mb-3">';
+        
+            files.forEach(file => {
+                html += `<div class="mb-3 border rounded p-3 d-flex justify-content-between align-items-center" id="fileContainer_${file._id}">`;
+        
+                // Hiển thị tên file kèm link tải
+                html += `
+                    <div class="flex-grow-1">
+                        <strong>Tài liệu:</strong>
+                        <a 
+                            href="${file.url}" 
+                            download="${file.name}" 
+                            rel="noopener noreferrer"
+                            class="text-decoration-none"
+                        >
+                            ${file.title || file.name || 'Tệp đính kèm'}
+                        </a>
+                    </div>`;
+        
+                // Nút sửa / xóa
+                html += `
+                    <div class="ms-3 text-nowrap">
+                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteFileHandler('${file._id}')">Xóa</button>
+                    </div>`;
+        
+                html += `</div>`; // kết thúc mỗi file
+            });
+        
+            html += '</div>';
+            return html;
+        }
+        
+        function deleteFileHandler(fileId) {
+            if (confirm('Bạn có chắc muốn xóa file này?')) {
+                fetch(`file/delete/${fileId}`, {
+                    method: 'DELETE'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById(`fileContainer_${fileId}`).remove();
+                    } else {
+                        alert('Xóa file thất bại!');
+                    }
+                });
+            }
+        }
+
+        function showEditFormModalHandler(event, formId) {
+            event.stopPropagation(); // Ngăn chặn sự kiện lan lên phần tử cha
+            showEditFormModal(formId); // Gọi hàm xử lý sửa form riêng
+        }
+        function deleteFormHandler(event, formId) {
+            // Ngăn chặn sự lan truyền của sự kiện
+            event.stopPropagation();
+            // Gọi hàm deleteForm để xử lý xóa form theo ID
+            deleteForm(formId);
+        }
+        
+        function toggleEditOptionsInput() {
+            const type = document.getElementById("editQuestionType").value;
+            document.getElementById("editOptionsContainer").style.display = (type === "radio" || type === "checkbox") ? "block" : "none";
+        }
+
+        async function showEditFormModal(formId) {
+            // Giả sử bạn có thể lấy thông tin form từ mảng forms trong memory
+            // Nếu bạn không có, bạn có thể gọi API GET /form/:id để lấy thông tin
+            // Ở đây mình giả định bạn có dữ liệu form trong biến global "currentForms"
+            let form = currentForms.find(f => f._id === formId);
+            if (!form) {
+                alert("Không tìm thấy thông tin form cần chỉnh sửa.");
+                return;
+            }
+            document.getElementById("editFormId").value = form._id;
+            document.getElementById("editQuestionName").value = form.name;
+            document.getElementById("editQuestionType").value = form.type;
+            document.getElementById("editQuestionRequired").checked = form.required;
+            
+            if (form.type === "radio" || form.type === "checkbox") {
+                document.getElementById("editQuestionOptions").value = form.options.join("\n");
+                document.getElementById("editOptionsContainer").style.display = "block";
+            } else {
+                document.getElementById("editOptionsContainer").style.display = "none";
+            }
+            
+            const modal = new bootstrap.Modal(document.getElementById("editFormModal"));
+            modal.show();
+        }
+
+        document.getElementById("editFormQuestionForm").addEventListener("submit", async function(e) {
+            e.preventDefault();
+            const formId = document.getElementById("editFormId").value;
+            const updatedData = {
+                name: document.getElementById("editQuestionName").value,
+                type: document.getElementById("editQuestionType").value,
+                required: document.getElementById("editQuestionRequired").checked,
+                options: []
+            };
+            if (updatedData.type === "radio" || updatedData.type === "checkbox") {
+                updatedData.options = document.getElementById("editQuestionOptions").value.split("\n").map(opt => opt.trim()).filter(opt => opt !== "");
+            }
+            
+            const response = await fetch(`form/update/${formId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatedData)
+            });
+            
+            if (response.ok) {
+                alert("Chỉnh sửa câu hỏi thành công!");
+                showStep(currentStepId, currentStepName, currentStepContent, currentStepType)
+            } else {
+                alert("Có lỗi khi chỉnh sửa câu hỏi!");
+            }
+        });
+
+        async function deleteForm(formId) {
+            if (!confirm("Bạn có chắc chắn muốn xóa câu hỏi này?")) return;
+            
+            const response = await fetch(`form/delete/${formId}`, {
+                method: "DELETE"
+            });
+            
+            if (response.ok) {
+                alert("Xóa câu hỏi thành công!");
+                showStep(currentStepId, currentStepName, currentStepContent, currentStepType)
+            } else {
+                alert("Có lỗi khi xóa câu hỏi!");
+            }
+        }
+        
+    
+        function showAddFormModal() {
+            document.getElementById("stepFormId").value = currentStepId;
+            document.getElementById("questionName").value = '';
+            document.getElementById("questionType").value = 'text';
+            document.getElementById("questionOptions").value = '';
+            document.getElementById("questionRequired").checked = false;
+            toggleOptionsInput();
+            const modal = new bootstrap.Modal(document.getElementById("addFormModal"));
+            modal.show();
+        }
+    
+        document.getElementById("addFormQuestionForm").addEventListener("submit", async function(e) {
+            e.preventDefault();
+    
+            const formData = {
+                stepId: document.getElementById("stepFormId").value,
+                name: document.getElementById("questionName").value,
+                type: document.getElementById("questionType").value,
+                required: document.getElementById("questionRequired").checked,
+                options: []
+            };
+    
+            if (formData.type === "radio" || formData.type === "checkbox") {
+                formData.options = document.getElementById("questionOptions").value.split("\n").map(opt => opt.trim()).filter(opt => opt !== "");
+            }
+    
+            const response = await fetch("form/create", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(formData)
+            });
+    
+            if (response.ok) {
+                alert("Thêm câu hỏi thành công!");
+                showStep(currentStepId, currentStepName, currentStepContent, currentStepType)
+                const modalElement = document.getElementById('addFormModal');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                modal.hide();
+
+
+            } else {
+                alert("Có lỗi xảy ra khi thêm câu hỏi!");
+            }
+        });
+        function toggleOptionsInput() {
+            const questionType = document.getElementById("questionType").value;
+            const optionsContainer = document.getElementById("optionsContainer");
+            if (questionType === "radio" || questionType === "checkbox") {
+                optionsContainer.style.display = "block";
+            } else {
+                optionsContainer.style.display = "none";
+            }
+        }
+        
+
+        function showAddFileModal() {
+            const modal = new bootstrap.Modal(document.getElementById('addFileModal'));
+            modal.show();
+        }
+        
+        document.getElementById('uploadFileForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+        
+            const fileInput = document.getElementById('fileInput');
+            const nameInput = document.getElementById('fileNameInput');
+            const file = fileInput.files[0];
+        
+            if (!file) return alert("Vui lòng chọn file.");
+        
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("name", nameInput.value || file.name);
+            formData.append("stepId", currentStepId);
+        
+            try {
+                const res = await fetch("file/upload", {
+                    method: "POST",
+                    body: formData
+                });
+        
+                const result = await res.json();
+        
+                if (result.success) {
+                    showStep(currentStepId, currentStepName, currentStepContent, currentStepType)// hoặc gọi lại renderFile nếu bạn muốn load động
+                    const modalElement = document.getElementById('addFileModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    modal.hide();
+                    const fileNameInput = document.getElementById('fileNameInput');
+                    const fileInput = document.getElementById('fileInput');
+                    fileNameInput.value = "";
+                    fileInput.value = "";
+                } else {
+                    alert(result.message || "Có lỗi xảy ra khi upload.");
+                }
+            } catch (err) {
+                console.log(err);
+                alert("Lỗi kết nối server khi upload file.");
+            }
+        });
+        
+    </script>
+    
+
+</body>
+</html>

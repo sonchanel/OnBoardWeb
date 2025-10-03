@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang chủ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        body { display: flex; }
+        .sidebar { width: 250px; background: #0d6efd; color: white; min-height: 100vh; padding: 15px; }
+        .sidebar a { color: white; text-decoration: none; display: block; padding: 10px; }
+        .sidebar a:hover { background: #084298; }
+        .content { flex-grow: 1; padding: 20px; }
+        .filter-panel { width: 250px; padding: 20px; background: #f8f9fa; }
+        .status-badge { padding: 5px 10px; border-radius: 5px; color: white; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h4>
+            <a href="/users/Profile" class="text-white text-decoration-none">
+                <%= user.name %>
+            </a>
+        </h4>        
+        <a href="/">Trang chủ</a>
+        <a href="#">Thông báo</a>
+        <a href="/Thanhvien">Thành viên nhóm</a>
+        <a href="/Quytrinh">Quy trình</a>
+        <a href="#">Cài đặt</a>
+    </div>
+    
+    <div class="content">
+        <div class="container-fluid">
+            <h2><%= nhanvien.name %></h2>
+            <div class="row">
+                <!-- Sidebar: Danh sách các bước -->
+                <div class="col-md-3 bg-light p-3">
+                    <h4 class="mb-3"><%= quytrinh ? quytrinh.quyTrinhId.name : 'Chưa có Quy trình' %></h4>
+                    <ul class="list-group">
+                        <% if (steps.length <= 0) { %>
+                            <p class="text-muted">Chưa có Form nào được điền.</p>
+                        <% }; %>
+                        <% steps.forEach((step, index) => { %>
+                            <li class="list-group-item d-flex justify-content-between align-items-center step-item"
+                                onclick="viewStepAnswers('<%= step._id %>', '<%= nhanvien._id %>')">
+                                <span>
+                                    <strong><%= step.name %></strong>
+                                    <% if (step.required) { %> <span class="text-danger">*</span> <% } %>
+                                </span>
+                            </li>
+                        <% }); %>
+                    </ul>
+                </div>
+                
+                <!-- Sidebar: Nội dung -->
+                <div class="col-md-9">
+                    <div id="answerResult" class="mt-4"></div>
+                </div>
+
+            </div>
+        </div>
+
+        <script>
+            function viewStepAnswers(stepId, userId) {
+              const container = document.getElementById('answerResult');
+              container.innerHTML = `<div class="text-center mt-3"><div class="spinner-border text-primary" role="status"></div> Đang tải...</div>`;
+            
+              fetch(`step-answers/${stepId}/${userId}`)
+                .then(res => res.json())
+                .then(data => {
+                  if (data.length === 0) {
+                    container.innerHTML = `<p class="text-muted">Chưa có câu trả lời cho bước này.</p>`;
+                  } else {
+                    let html = '';
+                    data.forEach(ans => {
+                      html += `
+                      <div class="card mb-3">
+                        <div class="card-header">
+                          <strong>${ans.formId.name}</strong>
+                          <span class="text-muted float-end">${new Date(ans.submittedAt).toLocaleString()}</span>
+                        </div>
+                        <div class="card-body">`;
+            
+                      if (Array.isArray(ans.answer)) {
+                        ans.answer.forEach(val => {
+                          html += `<span class="badge bg-primary me-1">${val}</span>`;
+                        });
+                      } else {
+                        html += `<p>${ans.answer}</p>`;
+                      }
+            
+                      html += `</div></div>`;
+                    });
+            
+                    container.innerHTML = html;
+                  }
+                })
+                .catch(err => {
+                  container.innerHTML = `<p class="text-danger">Lỗi khi tải dữ liệu.</p>`;
+                  console.error(err);
+                });
+            }
+            </script>
+            
+</body>
+

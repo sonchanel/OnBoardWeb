@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Background Information Form</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.ckeditor.com/ckeditor5/41.2.1/classic/ckeditor.js"></script>
+
+<style>
+html {
+  height: 100%;
+}
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f4f4f4;
+  height: 100%;
+  width: 100%;
+  display: flex;
+}
+
+
+.sidebar {
+  width: 200px;
+  background-color: #4CAF50;
+  color: white;
+  padding: 20px;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+}
+
+.sidebar li {
+  margin-bottom: 10px;
+}
+
+.sidebar a { color: white; text-decoration: none; display: block; padding: 10px; }
+.sidebar a:hover { background: #24a828; }
+
+.main-content {
+  flex: 1;
+  padding: 20px;
+  background-color: white;
+}
+
+h2 {
+  color: #333;
+}
+
+.form-section {
+  margin-bottom: 20px;
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-radius: 5px;
+}
+
+.form-section h3 {
+  margin-top: 0;
+  color: #555;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+}
+
+.add-button {
+  background-color: #4CAF50;
+  color: white;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.add-button:hover {
+  background-color: #45a049;
+}
+
+.input-field {
+  width: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.remove-button {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.remove-button:hover {
+  background-color: #d32f2f;
+}
+
+/* Responsive layout */
+@media (max-width: 600px) {
+  .container {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    padding: 10px;
+  }
+  .main-content {
+    padding: 10px;
+  }
+}
+/* Nút tiếp tục */
+.continue-button {
+  background-color: #4CAF50;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin-top: 20px;
+}
+
+.continue-button:hover {
+  background-color: #45a049;
+}
+
+/* Các liên kết chưa hoàn thành sẽ bị vô hiệu hóa */
+.disabled-link {
+  color: #aaa;
+  pointer-events: none; /* Không cho phép click vào liên kết */
+  text-decoration: none;
+}
+
+/* Các bước đã hoàn thành sẽ có màu khác */
+.completed-link {
+  color: #28a745;
+  font-weight: bold;
+}
+
+#sidebar {
+  pointer-events: auto; /* Bật khi cần */
+}
+
+#sidebar[style*="pointer-events: none"] {
+  pointer-events: none;
+  opacity: 0.5; /* Làm mờ sidebar khi vô hiệu hóa */
+}
+
+
+</style>
+</head>
+
+
+<body>
+
+    <div class="sidebar" id="sidebar">
+        <a href="/users/Profile" class="text-white text-decoration-none">
+            <h3><%= user.name %></h3>
+        </a>
+      
+      <ul id="steps-list">
+        <% if (step && step.length > 0) { %>
+        <% step.forEach((item, index) => { %>
+          <li>
+            <a href="#" class="step-link" data-id="<%= index %>" id="step-<%= index %>" 
+               <%= index > 0 ? 'class="disabled-link"' : '' %>><%= item.name %></a>
+          </li>
+        <% }) %>
+        <% } %>
+      </ul>
+    </div>
+
+    <div class="main-content">
+      <% if (step && step.length > 0) { %>
+      <div id="step-content">
+        <h2>Bắt đầu quá trình Onboard ngay !</h2>
+        <button id="start-btn" class="continue-button">Bắt đầu</button>
+      </div>   
+      <% } else { %>
+        <h2>Chưa có quy trình nào!</h2>
+        <p class="message">Vui lòng liên hệ với quản lý để được thêm vào một quy trình.</p>
+      <% } %> 
+    </div>
+  
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const stepLinks = document.querySelectorAll(".step-link");
+      const stepContent = document.getElementById("step-content");
+      const sidebar = document.getElementById("sidebar");
+      const stepsList = document.getElementById("steps-list");
+      // Lấy danh sách step từ server (được nhúng từ EJS)
+      const stepDetails = <%- JSON.stringify(step) %>;
+      const userId = "<%= user._id %>";  // Giả sử user._id có sẵn trong EJS
+  
+      let currentStepIndex = 0
+
+      // Hàm để lấy tiến trình của người dùng từ server
+      function getUserProgress() {
+        fetch(`Home/get-user-progress/${userId}`)
+          .then(response => response.json())
+          .then(data => {
+            currentStepIndex = data.currentStepIndex;
+            // Kích hoạt các bước dựa trên tiến trình người dùng
+            enableSteps(currentStepIndex);
+          })
+          .catch(error => {
+            console.error('Có lỗi khi lấy tiến trình người dùng:', error);
+          });
+      }
+  
+      // Hàm để kích hoạt bước đã hoàn thành và vô hiệu hóa bước chưa hoàn thành
+      function enableSteps(currentStepIndex) {
+        // Enable các bước đã hoàn thành và disable các bước chưa hoàn thành
+        stepLinks.forEach((link, index) => {
+          if (index <= currentStepIndex) {
+            link.classList.remove("disabled-link");
+            link.addEventListener("click", function (e) {
+              e.preventDefault();
+              loadStepContent(index); // Mở nội dung bước khi nhấn vào
+            });
+
+            link.innerHTML = `${stepDetails[index].name} <i class="fas fa-check-circle" style="color: green;"></i>`;
+          } else {
+            link.classList.add("disabled-link");
+            link.innerHTML = `${stepDetails[index].name}`;
+          }
+        });
+      }
+  
+      // Hàm hiển thị nội dung bước
+      function loadStepContent(index) {
+        const stepInfo = stepDetails[index];
+        
+        let html = `<h2>${stepInfo.name}</h2>`;
+      
+        if (stepInfo.files && stepInfo.files.length > 0) {
+          html += renderDocuments(stepInfo.files);
+          html += `<button id="continue-btn" class="continue-button">Xác nhận</button>`;
+        }else if (stepInfo.type === "form" && stepInfo.forms && stepInfo.forms.length > 0) {
+          html += renderForm(stepInfo.forms);
+          html += `<button id="continue-btn" class="continue-button">Xác nhận</button>`;
+        } else {
+          html += `<p>${stepInfo.content || "Không có nội dung"}</p>`;
+          html += `<button id="continue-btn" class="continue-button">Xác nhận</button>`;
+        }
+      
+        stepContent.innerHTML = html;
+      
+        // Nếu là form, bắt sự kiện submit
+        const formElement = document.getElementById("dynamicForm");
+        if (formElement) {
+          formElement.addEventListener("submit", function (e) {
+            e.preventDefault();
+      
+            // Thu thập dữ liệu
+            const formData = new FormData(formElement);
+            const answers = [];
+            for (let [key, value] of formData.entries()) {
+              // Với checkbox, cần thu thập nhiều giá trị
+              const existing = answers.find(a => a.name === key);
+              if (existing) {
+                existing.value = [].concat(existing.value, value);
+              } else {
+                answers.push({ name: key, value });
+              }
+            }
+            
+            formElement.style.display = 'none';
+            
+            // Gửi câu trả lời đến server (tùy bạn thiết kế backend)
+            fetch("/Home/submit-answer", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                userId,
+                stepId: stepInfo._id,
+                answers
+              }),
+            })
+            .then(res => res.json())
+            .then(data => {
+              console.log("Đã lưu câu trả lời:", data);
+              alert("Đã lưu câu trả lời!");
+              formElement.style.display = 'block';
+            })
+            .catch(err => console.error("Lỗi khi gửi form:", err));
+          });
+        }
+      
+        // Nếu là bước bình thường, bắt sự kiện nút xác nhận
+        const continueBtn = document.getElementById("continue-btn");
+        if (continueBtn) {
+          continueBtn.addEventListener("click", function () {
+            if (index < stepDetails.length) {
+              updateStepInDatabase(index + 1);
+            } else {
+              stepContent.innerHTML = '<h2>Quá trình hoàn tất!</h2>';
+            }
+          });
+        }
+      }
+      
+
+      // Cập nhật thông tin bước người dùng trong database
+      function updateStepInDatabase(nextStepIndex) {
+        fetch('Home/update-step', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: userId,
+            currentStepIndex: nextStepIndex,
+          }),
+        })
+        .then(response => {
+          return response.json()
+        })
+        .then(data => {
+          if(data.message !== 'Bạn đã hoàn thành!'){
+          console.log('Cập nhật bước thành công:', data);
+          loadStepContent(nextStepIndex); // Tải bước tiếp theo
+          getUserProgress();
+          }else{
+            stepContent.innerHTML = '<h2>Quá trình hoàn tất!</h2>';
+          }
+        })
+        .catch(error => {
+          console.error('Có lỗi xảy ra khi cập nhật bước:', error);
+        });
+      }
+  
+      // Lấy thông tin tiến trình của người dùng khi trang tải
+      getUserProgress();
+
+      // Khi nhấn "Bắt đầu", mở bước đầu tiên
+      document.getElementById("start-btn").addEventListener("click", function() {
+        if (stepDetails.length > 0) {
+          loadStepContent(0);  // Chuyển đến bước đầu tiên
+        }
+      });
+
+    });
+
+    function renderForm(forms) {
+      if (!forms || forms.length === 0) return '<p>Không có câu hỏi nào.</p>';
+    
+      let html = '<form id="dynamicForm" class="mb-3">';
+    
+      forms.forEach(form => {
+        const nameAttr = `form_${form._id}`;
+        const answer = form.answer;
+    
+        html += `<div class="mb-4" id="formContainer_${form._id}">`;
+        html += `<label class="form-label"><strong>${form.name}</strong>${form.required ? ' <span class="text-danger">*</span>' : ''}</label>`;
+    
+        switch (form.type) {
+          case 'text':
+          case 'number':
+            html += `<input type="${form.type}" class="form-control" name="${nameAttr}" placeholder="Nhập câu trả lời..." value="${answer || ''}" ${form.required ? 'required' : ''}>`;
+            break;
+    
+          case 'radio':
+            if (Array.isArray(form.options) && form.options.length > 0) {
+              form.options.forEach(opt => {
+                const checked = (answer === opt) ? 'checked' : '';
+                html += `
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="${nameAttr}" id="${nameAttr}_${opt}" value="${opt}" ${checked} ${form.required ? 'required' : ''}>
+                    <label class="form-check-label" for="${nameAttr}_${opt}">${opt}</label>
+                  </div>`;
+              });
+            } else {
+              html += `<p class="text-muted">Không có tùy chọn.</p>`;
+            }
+            break;
+    
+          case 'checkbox':
+            if (Array.isArray(form.options) && form.options.length > 0) {
+              const selectedAnswers = Array.isArray(answer) ? answer : (typeof answer === 'string' ? [answer] : []);
+              form.options.forEach(opt => {
+                const isChecked = selectedAnswers.includes(opt);
+                html += `
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="${nameAttr}" id="${nameAttr}_${opt}" value="${opt}" ${isChecked ? 'checked' : ''}>
+                    <label class="form-check-label" for="${nameAttr}_${opt}">${opt}</label>
+                  </div>`;
+              });
+            } else {
+              html += `<p class="text-muted">Không có tùy chọn.</p>`;
+            }
+            break;
+    
+          default:
+            html += `<p class="text-muted">Kiểu câu hỏi không xác định.</p>`;
+        }
+    
+        html += `</div>`; // Kết thúc một form
+      });
+    
+      html += `<button type="submit" class="continue-button">Gửi câu trả lời</button>`;
+      html += '</form>';
+    
+      return html;
+    }
+
+
+      function renderDocuments(files) {
+        if (!files || files.length === 0) return '<p>Chưa có file nào được đính kèm.</p>';
+        
+            let html = '<div id="fileList" class="mb-3">';
+        
+            files.forEach(file => {
+                html += `<div class="mb-3 border rounded p-3 d-flex justify-content-between align-items-center" id="fileContainer_${file._id}">`;
+        
+                // Hiển thị tên file kèm link tải
+                html += `
+                    <div class="flex-grow-1">
+                        <strong>${file.title}</strong>
+                        <br>
+                        <a 
+                            href="${file.url}" 
+                            download="${file.name}" 
+                            rel="noopener noreferrer"
+                            class="text-decoration-none"
+                        >
+                            ${ file.name || 'Tệp đính kèm'}
+                        </a>
+                    </div>`;
+        
+        
+                html += `</div>`; // kết thúc mỗi file
+            });
+        
+            html += '</div>';
+            return html;
+        }
+    </script>
+    
+  
+  </body>
+    
+</html>
+
+
+<!--  -->

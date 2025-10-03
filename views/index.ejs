@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang chủ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        body { display: flex; }
+        .sidebar { width: 250px; background: #0d6efd; color: white; min-height: 100vh; padding: 15px; }
+        .sidebar a { color: white; text-decoration: none; display: block; padding: 10px; }
+        .sidebar a:hover { background: #084298; }
+        .content { flex-grow: 1; padding: 20px; }
+        .filter-panel { width: 250px; padding: 20px; background: #f8f9fa; }
+        .status-badge { padding: 5px 10px; border-radius: 5px; color: blue; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h4>
+            <a href="/users/Profile" class="text-white text-decoration-none">
+                <%= user.name %>
+            </a>
+        </h4>        
+        <a href="/">Trang chủ</a>
+        <a href="#">Thông báo</a>
+        <a href="/Thanhvien">Thành viên nhóm</a>
+        <a href="/Quytrinh">Quy trình</a>
+        <a href="#">Cài đặt</a>
+    </div>
+    
+    <div class="content">
+        <h2>Trang chủ</h2>
+        <!-- <input type="text" class="form-control mb-3" placeholder="Tìm kiếm nhân viên"> -->
+        
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Tên</th>
+                    <th>Email</th>
+                    <th>Cập nhật</th>
+                    <th>Nhóm</th>
+                    <th>Người quản lý</th>
+                    <th>Quy trình</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% data.forEach((item, index) => { %>
+                <tr>
+                    <td><%= index + 1 %></td>
+                    <td><%= item.name %></td>
+                    <td><%= item.email %></td>
+                    <td><%= item.updatedAt ? new Date(item.updatedAt).toLocaleString('vi-VN') : "Chưa cập nhật"%></td>
+                    <td><%= item.group %></td>
+                    <td><%= user.name %></td>
+                    <td>
+                        <% if(item.quyTrinhName.length > 0){ %>
+                            <%= item.quyTrinhName %>  
+                        <% } else { %>         
+                            <span style="color: cadetblue;">Chưa có</span>
+                        <% } %>
+                    </td>
+                    <td>
+                        <span class="status-badge"><%= item.status %></span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="openProcessModal('<%= item._id %>')">Thêm quy trình</button>
+                        <!-- <button class="btn btn-sm btn-warning" onclick="editItem('<%= item._id %>')">Chỉnh sửa</button> -->
+                        <!-- <button class="btn btn-sm btn-danger" onclick="formUser('<%= item._id %>')">Form</button> -->
+                        <a class="btn btn-sm btn-primary" href="/Form/<%= item._id %>">
+                            <i class="fas fa-eye"></i> Form
+                          </a>                          
+                    </td>                    
+                </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+
+<!-- Modal chọn quy trình -->
+<div class="modal fade" id="processModal" tabindex="-1" aria-labelledby="processModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="processModalLabel">Chọn quy trình</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul id="processList" class="list-group">
+                    <% processes.forEach(process => { %>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><%= process.name %></span>
+                            <button class="btn btn-sm btn-primary" onclick="addProcess('<%= process._id %>')">Thêm</button>
+                        </li>
+                    <% }); %>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+    
+    <!-- <div class="filter-panel">
+        <h5>Trạng thái</h5>
+        <ul class="list-unstyled">
+            <li><input type="radio" name="status" checked> Tất cả</li>
+            <li><input type="radio" name="status"> Chờ onboard</li>
+            <li><input type="radio" name="status"> Đang onboard</li>
+            <li><input type="radio" name="status"> Kiểm tra</li>
+            <li><input type="radio" name="status"> Sẵn sàng</li>
+            <li><input type="radio" name="status"> Hoàn thành</li>
+        </ul>
+    </div> -->
+</body>
+
+<script>
+    let selectedUserId = null;
+
+    function openProcessModal(userId) {
+        selectedUserId = userId;
+        let modal = new bootstrap.Modal(document.getElementById('processModal'));
+        modal.show();
+    }
+
+    function addProcess(processId) {
+        fetch(`/assign-process/${selectedUserId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ processId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert("Đã thêm quy trình thành công!");
+                window.location.reload();
+            } else {
+                alert(data.message);
+            }
+        });
+    }
+</script>
+
+    
+</html>

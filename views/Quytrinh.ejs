@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang chủ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        body { display: flex; }
+        .sidebar { width: 250px; background: #0d6efd; color: white; min-height: 100vh; padding: 15px; }
+        .sidebar a { color: white; text-decoration: none; display: block; padding: 10px; }
+        .sidebar a:hover { background: #084298; }
+        .content { flex-grow: 1; padding: 20px; }
+        .filter-panel { width: 250px; padding: 20px; background: #f8f9fa; }
+        .status-badge { padding: 5px 10px; border-radius: 5px; color: white; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h4>
+            <a href="/users/Profile" class="text-white text-decoration-none">
+                <%= user.name %>
+            </a>
+        </h4>        
+        <a href="/">Trang chủ</a>
+        <a href="#">Thông báo</a>
+        <a href="/Thanhvien">Thành viên nhóm</a>
+        <a href="/Quytrinh">Quy trình</a>
+        <a href="#">Cài đặt</a>
+    </div>
+    
+    <div class="content">
+        <h2>Danh sách Quy trình</h2>
+
+        <% if (processes.length > 0) { %>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Tên quy trình</th>
+                        <th>Nhóm</th>
+                        <th>Trạng thái</th>
+                        <!-- <th>Tài liệu</th> -->
+                        <th>Ngày tạo</th>
+                        <th>Người tạo</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% processes.forEach((process, index) => { %>
+                        <tr>
+                            <td><%= index + 1 %></td>
+                            <td><%= process.name %></td>
+                            <td><%= process.group %></td>
+                            <td><%= process.status %></td>
+                            <!-- <td><%= process.document %></td> -->
+                            <td><%= process.createdAt ? new Date(process.createdAt).toLocaleDateString('vi-VN') : 'N/A' %></td>
+                            <td><%= user.name %></td>
+                            <td>
+                                <a href="/Quytrinh/<%= process._id %>" class="btn btn-info btn-sm">🔍 Chi tiết</a>
+                                <button class="btn btn-danger btn-sm" onclick="deleteProcess('<%= process._id %>')">🗑️ Xóa</button>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        <% } else { %>
+            <p class="text-muted">Chưa có quy trình nào.</p>
+        <% } %>
+        <!-- Nút "Thêm quy trình" ở góc phải -->
+        <button class="btn btn-primary position-absolute top-0 end-0 mt-2 me-3"
+        data-bs-toggle="modal" data-bs-target="#addProcessModal">
+        + Thêm quy trình
+    </button>   
+    </div>
+        
+<!-- Modal nhập thông tin quy trình -->
+<div class="modal fade" id="addProcessModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Tạo Quy Trình Mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="processForm">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Tên quy trình</label>
+                        <input type="text" class="form-control" id="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="createdBy" class="form-label">Người quản lý</label>
+                        <input type="text" class="form-control" id="createdBy" data="<%= user._id%>" value="<%= user.email%>" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="group" class="form-label">Nhóm</label>
+                        <input type="text" class="form-control" id="group" required>
+                    </div>
+                    <!-- <div class="mb-3">
+                        <label for="status" class="form-label">Trạng thái</label>
+                        <select class="form-control" id="status">
+                            <option value="Mới">Mới</option>
+                            <option value="Đang thực hiện">Đang thực hiện</option>
+                            <option value="Hoàn thành">Hoàn thành</option>
+                        </select>
+                    </div> -->
+                    <button type="submit" class="btn btn-success">Lưu</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById("processForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    
+    const processData = {
+        name: document.getElementById("name").value,
+        createdBy: document.getElementById("createdBy").getAttribute("data"),
+        group: document.getElementById("group").value,
+    };
+
+    const response = await fetch("/Quytrinh/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(processData)
+    });
+
+    if (response.ok) {
+        alert("Thêm quy trình thành công!");
+        window.location.reload();
+    } else {
+        alert("Có lỗi xảy ra!");
+    }
+});
+</script>
+
+<script>
+    async function deleteProcess(processId) {
+        if (!confirm("Bạn có chắc muốn xóa quy trình này?")) return;
+    
+        const response = await fetch(`/Quytrinh/delete/${processId}`, {
+            method: "DELETE",
+        });
+    
+        if (response.ok) {
+            alert("Quy trình đã được xóa!");
+            window.location.reload();
+        } else {
+            alert("Có lỗi xảy ra!");
+        }
+    }    
+</script>
+
+</body>
+</html>
