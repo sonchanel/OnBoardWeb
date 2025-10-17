@@ -121,28 +121,65 @@ router.get('/export-form-answers', async (req, res) => {
       .lean();
 
     // Tạo dữ liệu cho Excel
-    const rows = answers.map(a => {
-      const infoUser = userIdToUser.get(String(a.userId));
-      const formName = a.formId && a.formId.name ? a.formId.name : '';
-      let value = a.answer;
-      if (Array.isArray(value)) {
-        value = value.join(', ');
-      } else if (value && typeof value === 'object') {
-        value = JSON.stringify(value);
-      } else if (value === undefined || value === null) {
-        value = '';
-      } else {
-        value = String(value);
+    // const rows = answers.map(a => {
+    //   const infoUser = userIdToUser.get(String(a.userId));
+    //   const formName = a.formId && a.formId.name ? a.formId.name : '';
+    //   let value = a.answer;
+    //   if (Array.isArray(value)) {
+    //     value = value.join(', ');
+    //   } else if (value && typeof value === 'object') {
+    //     value = JSON.stringify(value);
+    //   } else if (value === undefined || value === null) {
+    //     value = '';
+    //   } else {
+    //     value = String(value);
+    //   }
+    //   return {
+    //     'Nhóm': infoUser ? infoUser.group : '',
+    //     'Họ tên': infoUser ? infoUser.name : '',
+    //     'Email': infoUser ? infoUser.email : '',
+    //     'Câu hỏi': formName,
+    //     'Câu trả lời': value,
+    //     'Thời gian nộp': a.submittedAt ? new Date(a.submittedAt).toLocaleString('vi-VN') : ''
+    //   };
+    // });
+    // ✅ Tạo dữ liệu pivot: cột = câu hỏi, hàng = nhân viên
+    const allQuestions = [...new Set(answers.map(a => a.formId?.name).filter(Boolean))];
+    const userAnswers = {};
+
+    for (const a of answers) {
+      const u = userIdToUser.get(String(a.userId));
+      if (!u) continue;
+      const key = String(a.userId);
+
+      if (!userAnswers[key]) {
+        userAnswers[key] = {
+          'Nhóm': u.group || '',
+          'Họ tên': u.name || '',
+          'Email': u.email || '',
+        };
       }
-      return {
-        'Nhóm': infoUser ? infoUser.group : '',
-        'Họ tên': infoUser ? infoUser.name : '',
-        'Email': infoUser ? infoUser.email : '',
-        'Câu hỏi': formName,
-        'Câu trả lời': value,
-        'Thời gian nộp': a.submittedAt ? new Date(a.submittedAt).toLocaleString('vi-VN') : ''
-      };
+
+      let value = a.answer;
+      if (Array.isArray(value)) value = value.join(', ');
+      else if (typeof value === 'object' && value !== null) value = JSON.stringify(value);
+      else if (!value) value = '';
+
+      userAnswers[key][a.formId?.name || ''] = value;
+    }
+
+    const rows = Object.values(userAnswers);
+
+    // ✅ Sắp xếp lại thứ tự cột: Nhóm - Họ tên - Email - Câu hỏi
+    const headerOrder = ['Nhóm', 'Họ tên', 'Email', ...allQuestions];
+    const orderedRows = rows.map(row => {
+      const ordered = {};
+      for (const key of headerOrder) {
+        ordered[key] = row[key] || '';
+      }
+      return ordered;
     });
+
 
     // Nếu không có câu trả lời, vẫn xuất file với header
     if (!rows.length) {
@@ -150,7 +187,8 @@ router.get('/export-form-answers', async (req, res) => {
     }
 
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
+    // const ws = XLSX.utils.json_to_sheet(rows);
+    const ws = XLSX.utils.json_to_sheet(orderedRows, { header: headerOrder });
     XLSX.utils.book_append_sheet(wb, ws, 'FormAnswers');
     const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' });
 
