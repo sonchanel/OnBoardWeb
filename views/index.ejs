@@ -32,7 +32,98 @@
     
     <div class="content">
         <h2>Trang chủ</h2>
-        <!-- <input type="text" class="form-control mb-3" placeholder="Tìm kiếm nhân viên"> -->
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-sm-6 col-md-5 col-lg-4">
+                <input type="text" class="form-control" name="q" placeholder="Tìm theo tên hoặc email" value="<%= typeof q !== 'undefined' ? q : '' %>">
+            </div>
+            <div class="col-sm-4 col-md-3 col-lg-3">
+                <select class="form-select" name="group" onchange="this.form.submit()">
+                    <option value="all" <%= (selectedGroup === 'all') ? 'selected' : '' %>>Tất cả nhóm</option>
+                    <% if (typeof groups !== 'undefined' && groups && groups.length) { %>
+                        <% groups.forEach(function(g) { %>
+                            <option value="<%= g %>" <%= (selectedGroup === g) ? 'selected' : '' %>><%= g %></option>
+                        <% }) %>
+                    <% } %>
+                </select>
+            </div>
+            <div class="col-sm-2 col-md-2 col-lg-2">
+                <button type="submit" class="btn btn-outline-primary w-100">Tìm kiếm</button>
+            </div>
+            <div class="col-sm-12 col-md-2 col-lg-2">
+                <a href="/" class="btn btn-outline-secondary w-100">Xóa lọc</a>
+            </div>
+            <div class="col-sm-12 col-md-12 col-lg-4 p-1 justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#exportExcelModal">Xuất Excel nhóm</button>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#bulkAssignModal">Gán quy trình hàng loạt</button>
+            </div>
+        </form>
+
+        <!-- Modal: Gán quy trình hàng loạt -->
+        <div class="modal fade" id="bulkAssignModal" tabindex="-1" aria-labelledby="bulkAssignModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="bulkAssignModalLabel">Gán quy trình hàng loạt</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Chọn quy trình</label>
+                            <select id="modalProcessSelect" class="form-select">
+                                <option value="">-- Chọn quy trình --</option>
+                                <% processes.forEach(function(p){ %>
+                                    <option value="<%= p._id %>"><%= p.name %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Chọn nhóm</label>
+                            <select id="modalGroupSelect" class="form-select">
+                                <option value="">-- Chọn nhóm --</option>
+                                <% if (typeof groups !== 'undefined' && groups && groups.length) { %>
+                                    <% groups.forEach(function(g) { %>
+                                        <option value="<%= g %>"><%= g %></option>
+                                    <% }) %>
+                                <% } %>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="button" class="btn btn-primary" onclick="assignProcessToGroupFromModal()">Gán</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Xuất Excel câu trả lời form theo nhóm -->
+        <div class="modal fade" id="exportExcelModal" tabindex="-1" aria-labelledby="exportExcelModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exportExcelModalLabel">Xuất Excel câu trả lời form</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Chọn nhóm</label>
+                            <select id="exportGroupSelect" class="form-select">
+                                <option value="">-- Chọn nhóm --</option>
+                                <% if (typeof groups !== 'undefined' && groups && groups.length) { %>
+                                    <% groups.forEach(function(g) { %>
+                                        <option value="<%= g %>" <%= (selectedGroup === g) ? 'selected' : '' %>><%= g %></option>
+                                    <% }) %>
+                                <% } %>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="button" class="btn btn-success" onclick="exportExcelByGroup()">Tải xuống</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         
         <table class="table table-striped">
             <thead>
@@ -145,6 +236,47 @@
                 alert(data.message);
             }
         });
+    }
+
+    function exportExcelByGroup(){
+        const group = document.getElementById('exportGroupSelect').value;
+        if(!group){
+            alert('Hãy chọn nhóm.');
+            return;
+        }
+        // Tải file bằng cách mở URL (GET download)
+        const url = `/export-form-answers?group=${encodeURIComponent(group)}`;
+        window.location.href = url;
+    }
+
+    function assignProcessToGroupFromModal() {
+        const processId = document.getElementById('modalProcessSelect').value;
+        const group = document.getElementById('modalGroupSelect').value;
+
+        if (!group) {
+            alert('Hãy chọn nhóm.');
+            return;
+        }
+        if (!processId) {
+            alert('Hãy chọn quy trình.');
+            return;
+        }
+
+        fetch('/assign-process-group', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ group, processId })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                alert(res.message || 'Đã gán quy trình cho nhóm');
+                window.location.reload();
+            } else {
+                alert(res.message || 'Có lỗi xảy ra');
+            }
+        })
+        .catch(() => alert('Có lỗi xảy ra'))
     }
 </script>
 

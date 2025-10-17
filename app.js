@@ -15,6 +15,7 @@ var StepRouter = require('./routes/Step');
 var HomeRouter = require('./routes/Home');
 var uploadRoute = require('./routes/upload');
 var FormRoute = require('./routes/Form');
+var AdminRoute = require('./routes/Admin');
 
 
 var app = express();
@@ -66,6 +67,15 @@ var checkManager = async function(req, res, next){
   }
 }
 
+var checkAdmin = async function(req, res, next){
+  if(user && user.role === "Admin"){
+    return next()
+  }else{
+    console.log("admin-only")
+    res.redirect('/Dangnhap')
+  }
+}
+
 app.use('/Dangnhap', DangnhapRouter);
 app.use('/users',checkLogin, usersRouter);
 app.use('/Quytrinh',checkLogin,checkManager, QuytrinhRouter);
@@ -74,6 +84,7 @@ app.use('/Step',checkLogin,checkManager, StepRouter);
 app.use('/Upload', uploadRoute);
 app.use('/Home',checkLogin ,HomeRouter);
 app.use('/Form',checkLogin,checkManager,FormRoute);
+app.use('/Admin',checkLogin,checkAdmin, AdminRoute);
 
 app.use('/',checkLogin,checkManager, indexRouter);
 

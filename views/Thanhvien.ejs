@@ -17,6 +17,22 @@
     </style>
 </head>
 <body>
+    <style>
+        .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.6); display: none; align-items: center; justify-content: center; z-index: 2000; }
+    </style>
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+    <script>
+    function showLoading(){
+        var o = document.getElementById('loadingOverlay');
+        if(o) o.style.display = 'flex';
+    }
+    function hideLoading(){
+        var o = document.getElementById('loadingOverlay');
+        if(o) o.style.display = 'none';
+    }
+    </script>
     <div class="sidebar">
         <h4>
             <a href="/users/Profile" class="text-white text-decoration-none">
@@ -31,7 +47,35 @@
     </div>
     
     <div class="content">
-        <h2>Danh sách Thành viên</h2>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="mb-0">Danh sách Thành viên</h2>
+            <div class="d-flex gap-2">
+                <a class="btn btn-outline-secondary" href="/Thanhvien/bulk-template">Tải file mẫu</a>
+                <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#bulkImportModal">Nhập từ Excel</button>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProcessModal">+ Thêm thành viên</button>
+            </div>
+        </div>
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-sm-6 col-md-5 col-lg-4">
+                <input type="text" class="form-control" name="q" placeholder="Tìm theo tên hoặc email" value="<%= typeof q !== 'undefined' ? q : '' %>">
+            </div>
+            <div class="col-sm-4 col-md-3 col-lg-3">
+                <select class="form-select" name="group" onchange="this.form.submit()">
+                    <option value="all" <%= (selectedGroup === 'all') ? 'selected' : '' %>>Tất cả nhóm</option>
+                    <% if (typeof groups !== 'undefined' && groups && groups.length) { %>
+                        <% groups.forEach(function(g) { %>
+                            <option value="<%= g %>" <%= (selectedGroup === g) ? 'selected' : '' %>><%= g %></option>
+                        <% }) %>
+                    <% } %>
+                </select>
+            </div>
+            <div class="col-sm-2 col-md-2 col-lg-2">
+                <button type="submit" class="btn btn-outline-primary w-100">Tìm kiếm</button>
+            </div>
+            <div class="col-sm-12 col-md-2 col-lg-2">
+                <a href="/Thanhvien" class="btn btn-outline-secondary w-100">Xóa lọc</a>
+            </div>
+        </form>
 
         <% if (thanhvien.length > 0) { %>
             <table class="table table-striped">
@@ -72,11 +116,7 @@
         <% } else { %>
             <p class="text-muted">Chưa có thành viên nào.</p>
         <% } %>
-        <!-- Nút "Thêm quy trình" ở góc phải -->
-        <button class="btn btn-primary position-absolute top-0 end-0 mt-2 me-3"
-        data-bs-toggle="modal" data-bs-target="#addProcessModal">
-        + Thêm thành viên
-    </button>   
+        
     </div>
         
 <!-- Modal nhập thêm nhân viên-->
@@ -123,6 +163,41 @@
     </div>
 </div>
 
+<!-- Modal bulk import -->
+<div class="modal fade" id="bulkImportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nhập nhân viên từ Excel/CSV</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="bulkImportForm">
+                    <div class="mb-3">
+                        <label class="form-label">Chọn file (.xlsx/.csv)</label>
+                        <input type="file" id="bulkFile" accept=".xlsx,.csv" class="form-control" required>
+                    </div>
+                    <div class="alert alert-info">
+                        File phải có các cột: <code>name</code>, <code>email</code>, <code>password</code>, <code>group</code>.
+                        Nếu <code>password</code> trống, hệ thống sẽ tự sinh mật khẩu.
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="sendEmail">
+                        <label class="form-check-label" for="sendEmail">Gửi email thông tin tài khoản cho nhân viên</label>
+                    </div>
+                    <button type="submit" class="btn btn-success">Nhập</button>
+                </form>
+                <hr/>
+                <div id="bulkResult" class="d-none">
+                    <h6>Kết quả</h6>
+                    <div id="bulkSummary" class="mb-2"></div>
+                    <pre id="bulkErrors" class="bg-light p-2" style="max-height:200px; overflow:auto"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal chỉnh sửa nhân viên -->
 <div class="modal fade" id="editThanhVienModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -157,7 +232,7 @@
 <script>
 document.getElementById("thanhvienForm").addEventListener("submit", async function (e) {
     e.preventDefault();
-    
+    showLoading();
     const thanhvienData = {
         name: document.getElementById("name").value,
         email: document.getElementById("email").value,
@@ -165,24 +240,27 @@ document.getElementById("thanhvienForm").addEventListener("submit", async functi
         manager: document.getElementById("manager").getAttribute("data"),
         group: document.getElementById("group").value,
     };
-
-    const response = await fetch("/Thanhvien/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(thanhvienData)
-    });
-
-    if (response.ok) {
-        alert("Thêm thành viên thành công!");
-        window.location.reload();
-    } else {
-        alert("Có lỗi xảy ra!");
+    try{
+        const response = await fetch("/Thanhvien/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(thanhvienData)
+        });
+        if (response.ok) {
+            alert("Thêm thành viên thành công!");
+            window.location.reload();
+        } else {
+            alert("Có lỗi xảy ra!");
+        }
+    } finally {
+        hideLoading();
     }
 });
 </script>
 
 <script>
     async function editThanhVien(id) {
+        showLoading();
         const response = await fetch(`/Thanhvien/${id}`);
         const thanhvien = await response.json();
     
@@ -192,29 +270,32 @@ document.getElementById("thanhvienForm").addEventListener("submit", async functi
         document.getElementById("edit_email").value = thanhvien.email;
     
         new bootstrap.Modal(document.getElementById('editThanhVienModal')).show();
+        hideLoading();
     }
     
     document.getElementById("editThanhVienForm").addEventListener("submit", async function (e) {
         e.preventDefault();
-    
+        showLoading();
         const id = document.getElementById("edit_id").value;
         const thanhvienData = {
             name: document.getElementById("edit_name").value,
             email: document.getElementById("edit_email").value,
             group: document.getElementById("edit_group").value,
         };
-    
-        const response = await fetch(`/Thanhvien/update/${id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(thanhvienData)
-        });
-    
-        if (response.ok) {
-            alert("Cập nhật thành công!");
-            window.location.reload();
-        } else {
-            alert("Có lỗi xảy ra!");
+        try{
+            const response = await fetch(`/Thanhvien/update/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(thanhvienData)
+            });
+            if (response.ok) {
+                alert("Cập nhật thành công!");
+                window.location.reload();
+            } else {
+                alert("Có lỗi xảy ra!");
+            }
+        } finally {
+            hideLoading();
         }
     });
     </script>
@@ -222,16 +303,70 @@ document.getElementById("thanhvienForm").addEventListener("submit", async functi
     <script>
         async function deleteThanhVien(id) {
             if (confirm("Bạn có chắc chắn muốn xóa nhân viên này?")) {
-                const response = await fetch(`/Thanhvien/delete/${id}`, { method: "DELETE" });
-                if (response.ok) {
-                    alert("Xóa thành công!");
-                    window.location.reload();
-                } else {
-                    alert("Có lỗi xảy ra!");
+                showLoading();
+                try{
+                    const response = await fetch(`/Thanhvien/delete/${id}`, { method: "DELETE" });
+                    if (response.ok) {
+                        alert("Xóa thành công!");
+                        window.location.reload();
+                    } else {
+                        alert("Có lỗi xảy ra!");
+                    }
+                } finally {
+                    hideLoading();
                 }
             }
         }
         </script>
+
+<script>
+// Bulk import handler for Manager
+document.getElementById('bulkImportForm')?.addEventListener('submit', async function(e){
+    e.preventDefault();
+    // Cho overlay xuất hiện ngay trước khi gửi request (đảm bảo vẽ frame)
+    showLoading();
+    await new Promise(r => setTimeout(r, 0));
+    const file = document.getElementById('bulkFile').files[0];
+    if(!file){
+        alert('Vui lòng chọn file');
+        hideLoading();
+        return;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('sendEmail', document.getElementById('sendEmail').checked);
+    const res = await fetch('/Thanhvien/bulk-import', { method: 'POST', body: formData });
+    const result = await res.json();
+    const resultBox = document.getElementById('bulkResult');
+    const summary = document.getElementById('bulkSummary');
+    const errorsBox = document.getElementById('bulkErrors');
+    resultBox.classList.remove('d-none');
+    if(res.ok){
+        summary.innerText = `Tổng: ${result.summary.totalRows} | Tạo thành công: ${result.summary.createdCount} | Lỗi: ${result.summary.errorCount}`;
+        errorsBox.innerText = (result.errors || []).map(e => `Dòng ${e.row}: ${e.error}`).join('\n') || 'Không có lỗi';
+        if (result.summary && Number(result.summary.errorCount) === 0) {
+            const modalEl = document.getElementById('bulkImportModal');
+            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            modal.hide();
+            window.location.reload();
+        }
+    } else {
+        summary.innerText = 'Có lỗi xảy ra';
+        errorsBox.innerText = result.error || 'Lỗi không xác định';
+    }
+    hideLoading();
+});
+        </script>
+<script>
+function showLoading(){
+    const o = document.getElementById('loadingOverlay');
+    if(o) o.style.display = 'flex';
+}
+function hideLoading(){
+    const o = document.getElementById('loadingOverlay');
+    if(o) o.style.display = 'none';
+}
+</script>
 
             
         
